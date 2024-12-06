@@ -1,0 +1,181 @@
+Apache 
+sudo apt-get install apache2
+sudo service apache2 status
+sudo ufw status
+sudo ufw enable
+ufw app list
+ufw app info "Apache Full"
+ufw allow in "Apache Full"
+sudo apt-get install mysql-server
+sudo su - 
+mysql_secure_installation
+mysql -u root -p
+show databases;
+exit
+sudo apt-get install php libapache2-mod-php php-mysql
+sudo apt-get install phpmyadmin
+apache2
+yes
+sudo nano /etc/apache2/apache2.conf
+include /etc/phpmyadmin/apache.conf
+localhost/phpMyAdmin
+
+
+deberia funcionar php god
+
+Ahora dhcp
+sudo apt install net-tools
+sudo apt-get install isc-dhcp-server
+sudo nano /etc/default/isc-dhcp-server
+enp0s3
+sudo nano /etc/dhcp/dhcpd.conf
+
+subnet 192.168.1.0 netmask 255.255.255.0{
+range 192.168.1.25 192.168.1.125;
+option domain-name-servers 192.168.1.100;
+option domain-name "unah.edu.hn";
+option routers 192.168.1.1;
+option broadcast-address 192.168.1.255;
+default-lease-time 600;
+max-lease-time 7200;
+}
+
+sudo service isc-dhcp-server restart
+
+sudo nano /etc/network/interfaces
+auto enp0s3
+iface enp0s3 inet static
+address 192.168.1.10
+netmask 255.255.255.0
+gateway 192.168.1.1
+network 192.168.1.0
+dns-nameservers 192.168.1.100
+dns-search unah.edu.hn
+
+sudo service isc-dhcp-server restart
+sudo service isc-dhcp-server status
+
+
+ahora DNS
+
+sudo apt install bind9
+sudo apt install resolvconf
+cat /etc/resolv.conf
+sudo resolvconf -u
+ir a etc/network/interfaces en dns poner la misma direcciÃ³n ip
+sudo nano /etc/nsswitch.conf
+cd /etc/bind
+ls
+sudo nano named.conf.local
+
+//Zona de BÃºsqueda Directa:  
+zone âunah.edu.hnâ { 
+type master; 
+file â/etc/bind/db.unah.edu.hnâ; 
+}; 
+//Zona de BÃºsqueda Inversa: 
+zone â1.168.192.in-addr.arpaâ { 
+type master; 
+file â/etc/bind/db.1.168.192â; 
+}; 
+
+sudo named-checkconf
+
+sudo cp db.local /etc/bind/db.unah.edu 
+sudo nano db.unah.edu
+
+
+cambiar localhost por servidor.unah.edu.hn. root.unah.edu.hn.
+
+
+	IN NS servidor.unah.edu.hn.
+servidor IN A 192.168.1.10
+router IN A 192.168.1.1
+server IN CNAME servidor
+www 	IN CNMAE servidor
+
+sudo  named-checkzone unah.edu.hn /etc/bind/db.unah.edu
+sudo cp db.127 /etc/bind/db.1.168.192 
+sudo nano /etc/bind/db.1.168.192
+
+cambiar localhost por servidor.unah.edu.hn. root.unah.edu.hn.
+	IN NS servidor.unah.edu.hn.
+10	IN PTR servidor.unah.edu.hn.
+1	IN PTR router.unah.edu.hn. 
+
+sudo named-checkzone 1.168.192.in-addr.arpa /etc/bind/db.1.168.192
+sudo /etc/init.d/bind9 restart
+
+Imap
+
+cd /etc/bind/db.unah.edu.hn
+correo IN A 192.168.1.10
+unah.edu.hn IN MX 10 correo
+
+cd /etc/bind/db.1.168.192
+10 IN PTR correo.unah.edu.
+
+sudo apt install postfix
+ok 
+internet site
+unah.edu.hn
+por si acaso dpkg-reconfigure postfix 
+
+sudo  postconf mail_version
+
+cd /etc/postconfix
+sudo nano main.cf
+
+
+myhostname = correo.unah.edu.hn 
+myorigin = /etc/mailname 
+mydestination = $myhostname, unah.edu.hn, correo.unah.du.hn
+mynetworks = 192.168.1.0/24 
+home_mailbox = Maildir/ â esta es la ruta de la caja de correos.
+
+cat /etc/mailname  
+
+service postfix status 
+postconf -n.  
+sudo  apt install dovecot-imapd
+
+ systemctl start dovecot 
+systemctl enable dovecot
+
+service dovecot status
+
+
+sudo nano /etc/dovecot/conf.d/10-auth.conf
+disable_plaintext_auth = no
+
+sudo nano /etc/dovecot/conf.d/10-mail-conf
+Habilitaremos maildir en la lÃ­nea mail_location = maildir:~/Maildir 
+â Deshabilitaremos 
+Deshabilitaremos 
+mbox  en mbox:~/mail:INBOX=/var/mail/%u la lÃ­nea mail_location =
+
+sudo nano /etc/dovecot/conf.d/10-ssl-conf
+ssl = yes 
+ssl_cert comentado
+ssl_key comentado
+
+sudo adduser victoria
+
+thunderbird
+
+Nombre 
+usuario@unah.edu.hn
+
+Incoming
+hostname correo.unah.edu.hn
+PORT 143
+CONECTION SECURUITY NONE
+aut method normal password
+username victoria
+
+Outgoing
+correo.unah.edu.hn
+Port 2
+STARTTLS
+NORMAL PASSWORD
+victoria

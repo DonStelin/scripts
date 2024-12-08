@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Nombre del archivo: configurar_dhcp.sh
-# Este script configura un servidor DHCP en FreeBSD.
+# Este script configura un servidor DHCP en FreeBSD con correcciones para la subred y configuración del DNS.
 
 # Configurar variables
 INTERFAZ="em0"  # Cambia esto por el nombre de tu interfaz de red
@@ -11,6 +11,8 @@ DHCP_RANGE_START="192.168.1.100"
 DHCP_RANGE_END="192.168.1.200"
 GATEWAY="192.168.1.1"
 BROADCAST="192.168.1.255"
+SUFIJO_DNS="unah.edu.hn"  # Sufijo DNS
+DNS_SERVER="192.168.1.10"  # Dirección del servidor DNS (puedes ajustarlo)
 
 # Paso 1: Actualizar paquetes
 echo "Actualizando paquetes..."
@@ -34,12 +36,22 @@ default-lease-time 600;
 max-lease-time 7200;
 authoritative;
 
-subnet ${IP_STATIC} netmask ${NETMASK} {
+subnet ${IP_STATIC%.*}.0 netmask ${NETMASK} {  # Usar dirección base de la red
     range ${DHCP_RANGE_START} ${DHCP_RANGE_END};
-    option routers ${GATEWAY};
-    option broadcast-address ${BROADCAST};
+    option routers ${GATEWAY};  # Puerta de enlace predeterminada
+    option broadcast-address ${BROADCAST};  # Dirección de broadcast
+    option domain-name "${SUFIJO_DNS}";  # Sufijo DNS
+    option domain-name-servers ${DNS_SERVER};  # Servidor DNS
 }
 EOL
+
+# Validar el archivo de configuración
+echo "Validando archivo de configuración DHCP..."
+dhcpd -t -cf /usr/local/etc/dhcpd.conf
+if [ $? -ne 0 ]; then
+    echo "Error en la configuración de dhcpd.conf. Revise el archivo y los parámetros."
+    exit 1
+fi
 
 # Paso 5: Habilitar el servicio DHCP en rc.conf
 echo "Habilitando el servicio DHCP..."
@@ -48,10 +60,10 @@ sysrc dhcpd_ifaces="${INTERFAZ}"
 
 # Paso 6: Iniciar el servicio DHCP
 echo "Iniciando el servicio DHCP..."
-service isc-dhcpd start
+service isc-dhcpd restart
 
 # Verificar el estado del servicio
 echo "Verificando el estado del servicio DHCP..."
 service isc-dhcpd status
 
-echo "Configuración de DHCP completada."
+echo "Configuración de DHCP completada. Verifique el funcionamiento desde los clientes."

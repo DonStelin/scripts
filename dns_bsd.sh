@@ -1,23 +1,21 @@
 #!/bin/sh
 
-# Nombre del archivo: configurar_dns.sh
-# Este script configura un servidor DNS con BIND en FreeBSD para resolver nombres locales.
+# Nombre del archivo: configurar_dns_apache.sh
+# Este script configura un servidor DNS con BIND en FreeBSD para resolver el dominio servidor.unah.edu.hn
+# y ajusta Apache para responder al dominio.
 
 # Variables
 DOMAIN="unah.edu.hn"
-IP_SERVER="192.168.1.1"  # IP del servidor FreeBSD
+HOSTNAME="servidor"
+IP_SERVER="192.168.1.1"  # Dirección IP del servidor FreeBSD
 REVERSE_ZONE="1.168.192"
 BIND_DIR="/usr/local/etc/namedb"
 
-# Paso 1: Instalar BIND
-echo "Instalando BIND..."
-pkg install -y bind911
-
-# Paso 2: Habilitar BIND en rc.conf
-echo "Habilitando BIND en /etc/rc.conf..."
+# Paso 1: Habilitar e iniciar BIND
+echo "Habilitando BIND..."
 sysrc named_enable="YES"
 
-# Paso 3: Configurar named.conf
+# Paso 2: Configurar named.conf
 echo "Configurando named.conf..."
 cat > ${BIND_DIR}/named.conf <<EOL
 options {
@@ -37,7 +35,7 @@ zone "${REVERSE_ZONE}.in-addr.arpa" {
 };
 EOL
 
-# Paso 4: Configurar la zona de búsqueda directa
+# Paso 3: Crear archivo de zona directa
 echo "Creando archivo de zona directa para ${DOMAIN}..."
 mkdir -p ${BIND_DIR}/master
 cat > ${BIND_DIR}/master/db.${DOMAIN} <<EOL
@@ -51,11 +49,10 @@ cat > ${BIND_DIR}/master/db.${DOMAIN} <<EOL
 ;
 @       IN  NS      ns.${DOMAIN}.
 ns      IN  A       ${IP_SERVER}
-@       IN  A       ${IP_SERVER}
-www     IN  A       ${IP_SERVER}
+${HOSTNAME} IN  A   ${IP_SERVER}
 EOL
 
-# Paso 5: Configurar la zona de búsqueda inversa
+# Paso 4: Crear archivo de zona inversa
 echo "Creando archivo de zona inversa para ${REVERSE_ZONE}..."
 cat > ${BIND_DIR}/master/db.${REVERSE_ZONE} <<EOL
 \$TTL 604800
@@ -67,26 +64,44 @@ cat > ${BIND_DIR}/master/db.${REVERSE_ZONE} <<EOL
         604800 ) ; Negative Cache TTL
 ;
 @       IN  NS      ns.${DOMAIN}.
-1       IN  PTR     www.${DOMAIN}.
+1       IN  PTR     ${HOSTNAME}.${DOMAIN}.
 EOL
 
-# Paso 6: Verificar la configuración
-echo "Verificando la configuración de BIND..."
+# Paso 5: Verificar configuración de BIND
+echo "Verificando configuración de BIND..."
 named-checkconf
 named-checkzone ${DOMAIN} ${BIND_DIR}/master/db.${DOMAIN}
 named-checkzone ${REVERSE_ZONE}.in-addr.arpa ${BIND_DIR}/master/db.${REVERSE_ZONE}
 
-# Paso 7: Iniciar el servicio BIND
+# Paso 6: Iniciar BIND
 echo "Iniciando el servicio BIND..."
 service named restart
 
-# Paso 8: Configurar el cliente DNS en FreeBSD
-echo "Configurando el servidor DNS en resolv.conf..."
+# Paso 7: Configurar Apache para el dominio
+echo "Configurando Apache para ${HOSTNAME}.${DOMAIN}..."
+cat >> /usr/local/etc/apache24/httpd.conf <<EOL
+
+<VirtualHost *:80>
+    ServerName ${HOSTNAME}.${DOMAIN}
+    DocumentRoot "/usr/local/www/apache24/data"
+    <Directory "/usr/local/www/apache24/data">
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
+EOL
+
+# Reiniciar Apache
+echo "Reiniciando Apache..."
+service apache24 restart
+
+# Paso 8: Configurar resolv.conf
+echo "Configurando resolv.conf para usar el servidor DNS local..."
 cat > /etc/resolv.conf <<EOL
 nameserver ${IP_SERVER}
 search ${DOMAIN}
 EOL
 
-# Mensaje final
-echo "Configuración completada. Ahora puedes acceder a la página de Apache usando:"
-echo "http://www.${DOMAIN} desde cualquier cliente que utilice este servidor como DNS."
+# Paso 9: Prueba final
+echo "Configuración completada. Verifica desde un cliente que utilice ${IP_SERVER} como servidor DNS."
+echo "Puedes probar con: http://${HOSTNAME}.${DOMAIN}."
